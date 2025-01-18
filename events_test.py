@@ -42,9 +42,9 @@ def login_to_account(driver):
     wait_for_element(driver, By.ID, "current-password").send_keys(PASSWORD)
     wait_for_element(driver, By.CSS_SELECTOR, "button[name='submitButton']").click()
 
-with open('all past mracx events.txt', 'r') as file:
-    data = file.read()
-events = eval(data)
+# with open('all past mracx events.txt', 'r') as file:
+#     data = file.read()
+# events = eval(data)
 
 import time, json, re
 from bs4 import BeautifulSoup
@@ -62,8 +62,14 @@ def scrape_event_page(driver, event_page):
     meta = json.loads(meta)
     time = (meta['startDate'], meta['endDate'])
     group = meta['organizer']['name']
-    location = meta['location']['address']['streetAddress']
-    place = meta['location']['name']
+    try:
+        location = meta['location']['address']['streetAddress']
+    except:
+        location = "n/a"
+    try:
+        place = meta['location']['name']
+    except:
+        place = 'n/a'
     meta2 = soup.css.select('script[type="application/ld+json"]')[2].text
     attendees1 = json.loads(meta2)['additionalNumberOfGuests']
     attendees2 = soup.css.select('#attendees h2')[0].text
@@ -100,20 +106,14 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM event_links WHERE scraped IS NULL")
         all_events = cur.fetchall()
-        # print(all_events)
-
-        t_end = time.time() + 15
-        i = 0
+        t_end = time.time() + 20
+        o = 0
         events = {}
+        
         while time.time() < t_end:
-            # do whatever you do
-
-            event_id = all_events[i][0]
-            event_url = all_events[i][1]
-
+            event_id = all_events[o][0]
+            event_url = all_events[o][1]
             event_info = scrape_event_page(driver, event_url)
-
-
             events[event_id] = {
                 'url': event_url,
                 'name': event_info['name'],
@@ -125,14 +125,9 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
                 'attendees': event_info['attendees'],
                 'tags': event_info['tags']
             }
+            o+=1
 
-            i+=1
-            print(i)
-        
-        # print(events)
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS events (
+        cur.execute("""CREATE TABLE IF NOT EXISTS events (
                 id text PRIMARY KEY,
                 event_url text,
                 name text,
@@ -145,20 +140,23 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
                 tags text [])
             """)
 
-        print(events)
-
         for i in events:
             e = events[i]
 
-            cur.execute("""INSERT INTO events 
-                        (id, event_url, name, group_name, start_time, end_time, location, place, attendees, tags) 
-                        VALUES 
-                        (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
-                        [events[i], e['url'], e['name'], e['group'], e['start_time'], e['end_time'], e['location'], e['place'], e['attendees'], e['tags']])
+            cur.execute("""INSERT INTO events (id, event_url, name, group_name, start_time, end_time, location, place, attendees, tags) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING;
+                        """, 
+                        [i, e['url'], e['name'], e['group'], e['start_time'], e['end_time'], e['location'], e['place'], e['attendees'], e['tags']],
+                        )
 
-            # print(events[i])
-            
-        conn.commit()
+            cur.execute("""
+                UPDATE event_links
+                            SET scraped = TRUE
+                            FROM events
+                            WHERE event_links.id = events.id""")
+                        
+            conn.commit()
     
 
 
