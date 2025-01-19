@@ -42,10 +42,6 @@ def login_to_account(driver):
     wait_for_element(driver, By.ID, "current-password").send_keys(PASSWORD)
     wait_for_element(driver, By.CSS_SELECTOR, "button[name='submitButton']").click()
 
-# with open('all past mracx events.txt', 'r') as file:
-#     data = file.read()
-# events = eval(data)
-
 import time, json, re
 from bs4 import BeautifulSoup
 
@@ -89,9 +85,9 @@ def scrape_event_page(driver, event_page):
         'tags': tags
     }
 
+import psycopg, time, datetime
 service = Service(driver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
-import psycopg, time
 all_events = []
 
 try:
@@ -106,27 +102,10 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM event_links WHERE scraped IS NULL")
         all_events = cur.fetchall()
-        t_end = time.time() + 20
-        o = 0
-        events = {}
-        
-        while time.time() < t_end:
-            event_id = all_events[o][0]
-            event_url = all_events[o][1]
-            event_info = scrape_event_page(driver, event_url)
-            events[event_id] = {
-                'url': event_url,
-                'name': event_info['name'],
-                'group': event_info['group'],
-                'start_time': event_info['start_time'],
-                'end_time': event_info['end_time'],
-                'location': event_info['location'],
-                'place': event_info['place'],
-                'attendees': event_info['attendees'],
-                'tags': event_info['tags']
-            }
-            o+=1
+        i = 0
+        t_end = time.time() + 180
 
+        print(f"started at {datetime.datetime.now().time()}")
         cur.execute("""CREATE TABLE IF NOT EXISTS events (
                 id text PRIMARY KEY,
                 event_url text,
@@ -139,27 +118,33 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
                 attendees int,
                 tags text [])
             """)
-
-        for i in events:
-            e = events[i]
-
-            cur.execute("""INSERT INTO events (id, event_url, name, group_name, start_time, end_time, location, place, attendees, tags) 
+        
+        while time.time() < t_end:
+            event_id = all_events[i][0]
+            event_url = all_events[i][1]
+            event_info = scrape_event_page(driver, event_url)
+            
+            cur.execute("""INSERT INTO events 
+                        (id, event_url, name, group_name, start_time, end_time, location, place, attendees, tags) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (id) DO NOTHING;
-                        """, 
-                        [i, e['url'], e['name'], e['group'], e['start_time'], e['end_time'], e['location'], e['place'], e['attendees'], e['tags']],
-                        )
+                        ON CONFLICT (id) DO NOTHING;""", 
+                        [
+                            event_id,
+                            event_url,
+                            event_info['name'],
+                            event_info['group'],
+                            event_info['start_time'],
+                            event_info['end_time'],
+                            event_info['location'],
+                            event_info['place'],
+                            event_info['attendees'],
+                            event_info['tags']
+                        ])
 
-            cur.execute("""
-                UPDATE event_links
-                            SET scraped = TRUE
-                            FROM events
-                            WHERE event_links.id = events.id""")
+            cur.execute("""UPDATE event_links
+                        SET scraped = TRUE
+                        FROM events
+                        WHERE event_links.id = events.id;""")
                         
             conn.commit()
-    
-
-
-
-# x = scrape_event_page(driver, events[0])
-
+            i+=1
