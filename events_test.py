@@ -48,9 +48,9 @@ from bs4 import BeautifulSoup
 def scrape_event_page(driver, event_page):
     
     import time
-    time.sleep(3)
+    time.sleep(2)
     driver.get(event_page)
-    time.sleep(3)
+    time.sleep(2)
     soup = BeautifulSoup(driver.page_source, 'lxml')
 
     name = soup.h1.text
@@ -103,7 +103,7 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
         cur.execute("SELECT * FROM event_links WHERE scraped IS NULL")
         all_events = cur.fetchall()
         i = 0
-        t_end = time.time() + 180
+        t_end = time.time() + 600
 
         print(f"started at {datetime.datetime.now().time()}")
         cur.execute("""CREATE TABLE IF NOT EXISTS events (
