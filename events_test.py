@@ -107,7 +107,7 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
 
         print(f"started at {datetime.datetime.now().time()}")
         cur.execute("""CREATE TABLE IF NOT EXISTS events (
-                id text PRIMARY KEY,
+                id int PRIMARY KEY,
                 event_url text,
                 name text,
                 group_name text,
