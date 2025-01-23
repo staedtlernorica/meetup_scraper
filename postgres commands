@@ -1,0 +1,23 @@
+USE THIS TO MOVE THE ARRAY OF TAGS IN events TO TABLE event_tags
+
+-- CREATE TABLE event_tags (
+--   no SERIAL PRIMARY KEY,
+--   id integer,
+--   event_url text,
+--   topic_link text,
+--   tag text
+-- );
+
+-- WITH cleaned_tags AS (
+--     SELECT events.id,
+-- 			events.event_url,
+--            regexp_replace(unnest(events.tags), '[()"]', '', 'g') AS cleaned_tag
+--     FROM events
+-- 	)
+	
+-- INSERT INTO event_tags (id, event_url, topic_link, tag)
+-- SELECT id as id,
+-- 	   event_url as event_url,
+--        split_part(cleaned_tag, ',', 1) AS topic_link,
+--        split_part(cleaned_tag, ',', 2) AS tags
+-- FROM cleaned_tags;
