@@ -103,7 +103,7 @@ with psycopg.connect(host="localhost", dbname="postgres", user="postgres", passw
         cur.execute("SELECT * FROM event_links WHERE scraped IS NULL")
         all_events = cur.fetchall()
         i = 0
-        t_end = time.time() + 600
+        t_end = time.time() + 3600
 
         print(f"started at {datetime.datetime.now().time()}")
         cur.execute("""CREATE TABLE IF NOT EXISTS events (
